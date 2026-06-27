@@ -1,9 +1,11 @@
 pub mod agent;
+mod alias;
 pub mod app;
 pub mod bluetooth;
 pub mod cli;
 pub mod config;
 pub mod event;
+pub mod favorite;
 pub mod handler;
 mod help;
 pub mod notification;

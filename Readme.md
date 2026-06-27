@@ -35,12 +35,8 @@ pacman -S bluetui
 
 ### 🐧 Gentoo
 
-You can install `bluetui` from the [lamdness Gentoo Overlay](https://gpo.zugaina.org/net-wireless/bluetui):
-
 ```sh
-sudo eselect repository enable lamdness
-sudo emaint -r lamdness sync
-sudo emerge -av net-wireless/bluetui
+emerge net-wireless/bluetui
 ```
 
 ### 🧰 X-CMD
@@ -77,7 +73,7 @@ This will produce an executable file at `target/release/bluetui` that you can co
 
 `s`: Start/Stop scanning.
 
-`ctrl+c` or `q`: Quit the app.
+`ctrl+c` or `q`: Quit the app. (Note: `<Esc>` can also quit if `esc_quit = true` is set in config)
 
 ### Adapters
 
@@ -94,6 +90,8 @@ This will produce an executable file at `target/release/bluetui` that you can co
 `Space or Enter`: Connect/Disconnect the device.
 
 `t`: Trust/Untrust the device.
+
+`f`: Favorite/Unfavorite the device.
 
 `e`: Rename the device.
 
@@ -114,6 +112,7 @@ layout = "SpaceAround"
 width = "auto"
 
 toggle_scanning = "s"
+esc_quit = false  # Set to true to enable Esc key to quit the app
 
 [adapter]
 toggle_pairing = "p"
@@ -123,8 +122,15 @@ toggle_discovery = "d"
 [paired_device]
 unpair = "u"
 toggle_trust = "t"
+toggle_favorite = "f"
 rename = "e"
 ```
+
+## Contributing
+
+- No AI slop.
+- Only submit a pull request after having a prior issue or discussion.
+- Keep PRs small and focused.
 
 ## 🎁 Note
 

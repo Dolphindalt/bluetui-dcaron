@@ -21,6 +21,9 @@ pub struct Config {
     #[serde(default = "default_toggle_scanning")]
     pub toggle_scanning: char,
 
+    #[serde(default = "default_esc_quit")]
+    pub esc_quit: bool,
+
     #[serde(default)]
     pub adapter: Adapter,
 
@@ -37,7 +40,7 @@ pub enum Width {
 
 struct WidthVisitor;
 
-impl<'de> Visitor<'de> for WidthVisitor {
+impl Visitor<'_> for WidthVisitor {
     type Value = Width;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -117,6 +120,9 @@ pub struct PairedDevice {
     #[serde(default = "default_toggle_device_trust")]
     pub toggle_trust: char,
 
+    #[serde(default = "default_toggle_device_favorite")]
+    pub toggle_favorite: char,
+
     #[serde(default = "default_set_new_name")]
     pub rename: char,
 }
@@ -126,6 +132,7 @@ impl Default for PairedDevice {
         Self {
             unpair: 'u',
             toggle_trust: 't',
+            toggle_favorite: 'f',
             rename: 'e',
         }
     }
@@ -166,6 +173,10 @@ fn default_toggle_scanning() -> char {
     's'
 }
 
+fn default_esc_quit() -> bool {
+    false
+}
+
 fn default_toggle_adapter_pairing() -> char {
     'p'
 }
@@ -184,6 +195,10 @@ fn default_unpair_device() -> char {
 
 fn default_toggle_device_trust() -> char {
     't'
+}
+
+fn default_toggle_device_favorite() -> char {
+    'f'
 }
 
 impl Config {

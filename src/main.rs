@@ -7,23 +7,22 @@ use bluetui::{
     rfkill,
     tui::Tui,
 };
+use clap::Parser;
 use ratatui::{Terminal, backend::CrosstermBackend};
-use std::{io, path::PathBuf, process::exit, sync::Arc};
+use std::{io, process::exit, sync::Arc};
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> AppResult<()> {
-    let args = cli::cli().get_matches();
+    let args = cli::Args::parse();
 
-    let config_file_path = if let Some(config) = args.get_one::<PathBuf>("config") {
-        if config.exists() {
-            Some(config.to_owned())
+    let config_file_path = args.config_path.map(|config_path| {
+        if config_path.exists() {
+            config_path.clone()
         } else {
             eprintln!("Config file not found");
             exit(1);
         }
-    } else {
-        None
-    };
+    });
 
     rfkill::check()?;
 
@@ -49,20 +48,36 @@ async fn main() -> AppResult<()> {
                     tui.events.sender.clone(),
                     config.clone(),
                 )
-                .await?
+                .await?;
             }
             Event::Notification(notification) => {
                 app.notifications.push(notification);
             }
             Event::NewPairedDevice(address) => {
-                if let Some(req) = &app.requests.display_passkey
-                    && req.device == address
+                if app
+                    .requests
+                    .display_passkey
+                    .as_ref()
+                    .is_some_and(|req| req.device == address)
                 {
                     app.requests.display_passkey = None;
                 }
 
                 app.focused_block = bluetui::app::FocusedBlock::PairedDevices;
             }
+
+            Event::ToggleFavorite(address) => {
+                if let Some(pos) = app
+                    .favorite_devices
+                    .iter()
+                    .position(|favorite| *favorite == address)
+                {
+                    app.favorite_devices.swap_remove(pos);
+                } else {
+                    app.favorite_devices.push(address);
+                }
+            }
+
             Event::RequestConfirmation(request) => {
                 app.requests.init_confirmation(request);
                 app.focused_block = bluetui::app::FocusedBlock::RequestConfirmation;
@@ -114,8 +129,11 @@ async fn main() -> AppResult<()> {
             }
 
             Event::FailedPairing(address) => {
-                if let Some(req) = &app.requests.display_passkey
-                    && req.device == address
+                if app
+                    .requests
+                    .display_passkey
+                    .as_ref()
+                    .is_some_and(|req| req.device == address)
                 {
                     app.requests.display_passkey = None;
                 }

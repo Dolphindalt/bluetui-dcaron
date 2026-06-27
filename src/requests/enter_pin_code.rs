@@ -2,7 +2,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 
 use ratatui::{
     Frame,
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::{Constraint, Layout, Rect},
     style::{Color, Style, Stylize},
     text::{Line, Span, Text},
     widgets::{Block, BorderType, Borders, Clear, List},
@@ -104,7 +104,7 @@ impl EnterPinCode {
                     }
                 }
 
-                _ => {
+                FocusedSection::Input => {
                     self.pin_code
                         .field
                         .handle_event(&crossterm::event::Event::Key(key_event));
@@ -116,49 +116,42 @@ impl EnterPinCode {
     }
 
     pub fn render(&self, frame: &mut Frame, area: Rect) {
-        let layout = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Fill(1),
-                Constraint::Length(8),
-                Constraint::Fill(1),
-            ])
-            .split(area);
+        let layout = Layout::vertical([
+            Constraint::Fill(1),
+            Constraint::Length(8),
+            Constraint::Fill(1),
+        ])
+        .split(area);
 
-        let block = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([
-                Constraint::Fill(1),
-                Constraint::Max(70),
-                Constraint::Fill(1),
-            ])
-            .split(layout[1])[1];
+        let block = Layout::horizontal([
+            Constraint::Fill(1),
+            Constraint::Max(70),
+            Constraint::Fill(1),
+        ])
+        .split(layout[1])[1];
 
         let (message_block, input_block, submit_block) = {
-            let chunks = Layout::default()
-                .direction(Direction::Vertical)
-                .constraints(
-                    [
-                        Constraint::Length(1),
-                        Constraint::Length(1), // message
-                        Constraint::Length(1),
-                        Constraint::Length(3), // input
-                        Constraint::Length(1),
-                        Constraint::Length(1), // enter
-                        Constraint::Length(1),
-                    ]
-                    .as_ref(),
-                )
-                .split(block);
+            let chunks = Layout::vertical(
+                [
+                    Constraint::Length(1),
+                    Constraint::Length(1), // message
+                    Constraint::Length(1),
+                    Constraint::Length(3), // input
+                    Constraint::Length(1),
+                    Constraint::Length(1), // enter
+                    Constraint::Length(1),
+                ]
+                .as_ref(),
+            )
+            .split(block);
 
             (chunks[1], chunks[3], chunks[5])
         };
 
-        let input_block = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Max(5), Constraint::Fill(1), Constraint::Max(5)].as_ref())
-            .flex(ratatui::layout::Flex::Center)
-            .split(input_block)[1];
+        let input_block =
+            Layout::horizontal([Constraint::Max(5), Constraint::Fill(1), Constraint::Max(5)])
+                .flex(ratatui::layout::Flex::Center)
+                .split(input_block)[1];
 
         let message = Text::from(format!(
             "Enter the PIN Code for the device {} on {}",
@@ -210,5 +203,25 @@ impl EnterPinCode {
         frame.render_widget(message, message_block);
         frame.render_widget(user_input, input_block);
         frame.render_widget(submit, submit_block);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use insta::assert_snapshot;
+    use ratatui::{Terminal, backend::TestBackend};
+
+    #[test]
+    fn render() {
+        let mut terminal = Terminal::new(TestBackend::new(80, 10)).unwrap();
+        terminal
+            .draw(|frame| {
+                EnterPinCode::new("adapter".to_string(), Address::new(*b"DEADBE"))
+                    .render(frame, frame.area());
+            })
+            .unwrap();
+
+        assert_snapshot!(terminal.backend());
     }
 }

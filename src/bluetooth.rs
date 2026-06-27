@@ -19,6 +19,7 @@ pub struct Controller {
     pub new_devices: Vec<Device>,
 }
 
+#[allow(clippy::struct_excessive_bools, clippy::struct_field_names)]
 #[derive(Debug, Clone)]
 pub struct Device {
     device: BTDevice,
@@ -26,6 +27,7 @@ pub struct Device {
     pub icon: &'static str,
     pub alias: String,
     pub is_paired: bool,
+    pub is_favorite: bool,
     pub is_trusted: bool,
     pub is_connected: bool,
     pub battery_percentage: Option<u8>,
@@ -56,7 +58,10 @@ impl Device {
 }
 
 impl Controller {
-    pub async fn get_all(session: Arc<Session>) -> AppResult<Vec<Controller>> {
+    pub async fn get_all(
+        session: Arc<Session>,
+        favorite_devices: &[Address],
+    ) -> AppResult<Vec<Controller>> {
         let mut controllers: Vec<Controller> = Vec::new();
 
         // let session = bluer::Session::new().await?;
@@ -70,7 +75,8 @@ impl Controller {
                 let is_discoverable = adapter.is_discoverable().await?;
                 let is_scanning = adapter.is_discovering().await?;
 
-                let (paired_devices, new_devices) = Controller::get_all_devices(&adapter).await?;
+                let (paired_devices, new_devices) =
+                    Controller::get_all_devices(&adapter, favorite_devices).await?;
 
                 let controller = Controller {
                     adapter: Arc::new(adapter),
@@ -91,7 +97,10 @@ impl Controller {
         Ok(controllers)
     }
 
-    pub async fn get_all_devices(adapter: &Adapter) -> AppResult<(Vec<Device>, Vec<Device>)> {
+    pub async fn get_all_devices(
+        adapter: &Adapter,
+        favorite_devices: &[Address],
+    ) -> AppResult<(Vec<Device>, Vec<Device>)> {
         let mut paired_devices: Vec<Device> = Vec::new();
         let mut new_devices: Vec<Device> = Vec::new();
         let mut devices_without_aliases: Vec<Device> = Vec::new();
@@ -105,14 +114,16 @@ impl Controller {
             let is_paired = device.is_paired().await?;
             let is_trusted = device.is_trusted().await?;
             let is_connected = device.is_connected().await?;
+            let is_favorite = favorite_devices.contains(&addr);
             let battery_percentage = device.battery_percentage().await?;
 
             let dev = Device {
                 device,
                 addr,
-                alias,
                 icon,
+                alias,
                 is_paired,
+                is_favorite,
                 is_trusted,
                 is_connected,
                 battery_percentage,
@@ -120,18 +131,15 @@ impl Controller {
 
             if dev.is_paired {
                 paired_devices.push(dev);
+            } else if is_mac_addr(&dev.alias) {
+                devices_without_aliases.push(dev);
             } else {
-                match is_mac_addr(&dev.alias) {
-                    // most device names without aliases may default to their mac addresses, but we should not
-                    // assume that to be 100% the case
-                    true => devices_without_aliases.push(dev),
-                    false => new_devices.push(dev),
-                }
+                new_devices.push(dev);
             }
         }
 
-        paired_devices.sort_by_key(|i| i.addr);
-        new_devices.sort_by_key(|i| i.clone().alias);
+        paired_devices.sort_by_key(|i| (!i.is_favorite, i.addr));
+        new_devices.sort_by(|a, b| a.alias.cmp(&b.alias));
         devices_without_aliases.sort_by_key(|i| i.addr);
         new_devices.extend(devices_without_aliases);
 
@@ -140,6 +148,21 @@ impl Controller {
 }
 
 fn is_mac_addr(s: &str) -> bool {
-    let s: String = s.chars().filter(|&c| c != '-').collect();
-    s.len() == 12 && s.chars().all(|c| c.is_ascii_hexdigit())
+    if s.len() != 17 {
+        return false;
+    }
+    let mut chars = s.chars();
+    for _ in 0..5 {
+        // Matches [A-Fa-f0-9][A-Fa-f0-9]-
+        if !(matches!(chars.next(), Some(c) if c.is_ascii_hexdigit())
+            && matches!(chars.next(), Some(c) if c.is_ascii_hexdigit())
+            && matches!(chars.next(), Some('-')))
+        {
+            return false;
+        }
+    }
+    // Matches [A-Fa-f0-9][A-Fa-f0-9]$
+    matches!(chars.next(), Some(c) if c.is_ascii_hexdigit())
+        && matches!(chars.next(), Some(c) if c.is_ascii_hexdigit())
+        && chars.next().is_none()
 }
